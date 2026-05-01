@@ -1,0 +1,127 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: springai-postgres
+    environment:
+      POSTGRES_DB: springai
+      POSTGRES_USER: springai
+      POSTGRES_PASSWORD: springai
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U springai -d springai']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: springai-redis
+    ports:
+      - '6379:6379'
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: springai-kafka
+    environment:
+      KAFKA_CFG_NODE_ID: 0
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_KRAFT_CLUSTER_ID: springai-kraft-cluster-0001
+    ports:
+      - '9092:9092'
+    healthcheck:
+      test: ['CMD-SHELL', '/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1']
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: springai-ollama
+    ports:
+      - '11434:11434'
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ['CMD', 'ollama', 'list']
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+  springai-chat-service:
+    build:
+      context: ../..
+      dockerfile: springai-chat-service/Dockerfile
+    container_name: springai-chat-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/springai
+      SPRING_DATASOURCE_USERNAME: springai
+      SPRING_DATASOURCE_PASSWORD: springai
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      OLLAMA_BASE_URL: http://ollama:11434
+      JWT_SECRET: springai-platform-compose-secret-change-me
+      APP_STORAGE_BASE_PATH: /app/data/uploads
+    ports:
+      - '8080:8080'
+    volumes:
+      - uploads_data:/app/data/uploads
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:8080/actuator/health/readiness || exit 1']
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  springai-ui:
+    build:
+      context: ../../springai-ui
+      dockerfile: Dockerfile
+    container_name: springai-ui
+    depends_on:
+      springai-chat-service:
+        condition: service_healthy
+    ports:
+      - '4200:80'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost/ >/dev/null 2>&1 || exit 1']
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+volumes:
+  postgres_data:
+  redis_data:
+  ollama_data:
+  uploads_data:

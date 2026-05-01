@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: springai-ui
+  namespace: springai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: springai-ui
+  template:
+    metadata:
+      labels:
+        app: springai-ui
+    spec:
+      containers:
+        - name: springai-ui
+          image: your-docker-repo/springai-ui:latest
+          ports:
+            - containerPort: 80

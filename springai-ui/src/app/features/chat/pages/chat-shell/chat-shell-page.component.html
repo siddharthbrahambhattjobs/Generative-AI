@@ -1,0 +1,117 @@
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <h2>Chats</h2>
+    <button class="btn-new" type="button" (click)="createConversation()">New</button>
+  </div>
+
+  <div class="conversations">
+    @for (conv of conversations(); track conv.id) {
+    <div class="conversation-item" [class.active]="conv.id === currentConversationId()"
+      (click)="openConversation(conv)">
+      <span class="conv-title">{{ conv.title || 'Untitled' }}</span>
+      <button class="btn-delete-conv" type="button" title="Delete conversation"
+        (click)="deleteConversation(conv, $event)">
+        ×
+      </button>
+    </div>
+    }
+  </div>
+
+  <div class="sidebar-footer">
+    <span>{{ currentUserName() }}</span>
+    <button class="btn-logout" type="button" (click)="logout()">Logout</button>
+  </div>
+</aside>
+
+<div class="chat-area">
+  <div class="messages" #messagesContainer (scroll)="onMessagesScroll()">
+    <div class="messages-inner">
+      @if (messages().length === 0) {
+      <div class="empty-state">
+        <h3>Start a conversation</h3>
+        <p>Create a new chat or select one from the sidebar.</p>
+      </div>
+      }
+
+      <!-- NEW (fast, optimal performance) -->
+      @for (msg of messages(); track trackByMessageId($index, msg)) {
+      <div class="message" [class.user]="msg.role === 'USER'" [class.assistant]="msg.role === 'ASSISTANT'">
+        <span class="role-label">{{ msg.role === 'USER' ? 'You' : 'AI' }}</span>
+
+        @if (msg.role === 'USER') {
+        @if (msg.attachedFileNames?.length) {
+        <div class="message-file-chips">
+          @for (fileName of msg.attachedFileNames; track fileName) {
+          <div class="message-file-chip">
+            <span class="file-chip-icon">{{ getFileIcon(fileName) }}</span>
+            <span class="file-chip-name">{{ fileName }}</span>
+          </div>
+          }
+        </div>
+        }
+        }
+
+        @if (streaming() && msg.role === 'ASSISTANT' && $index === messages().length - 1) {
+        <!-- Live streaming text -->
+        <div class="bubble">{{ msg.content }}</div>
+        } @else {
+        <!-- Complete message -->
+        <div class="bubble">{{ msg.content }}</div>
+        }
+      </div>
+      }
+
+      @if (streaming() && messages().length > 0) {
+      <div class="typing-row">
+        <div class="typing-bubble" aria-label="AI is typing">
+          <span></span><span></span><span></span><span></span>
+        </div>
+      </div>
+      }
+    </div>
+
+    @if (showScrollToBottom()) {
+    <button class="scroll-to-bottom" type="button" (click)="scrollToBottom()">
+      ↓
+    </button>
+    }
+  </div>
+
+  <!-- Input area -->
+  <div class="input-wrap">
+
+    <!-- ✅ FIX: File chips INSIDE input-bar, ABOVE textarea -->
+    @if (pendingFiles().length > 0) {
+    <div class="file-chips-preview">
+      @for (file of pendingFiles(); track file.name) {
+      <div class="chip">
+        <span class="chip-icon">{{ getFileIcon(file.name) }}</span>
+        <span class="chip-name">{{ file.name }}</span>
+        <button type="button" (click)="removeFile(file)" title="Remove">✕</button>
+      </div>
+      }
+    </div>
+    }
+
+    <div class="input-bar">
+      <textarea #promptBox [(ngModel)]="prompt" placeholder="Ask anything or attach a file..." rows="1"
+        (input)="onPromptInput()" (keydown)="onPromptKeydown($event)">
+      </textarea>
+
+      <button class="btn-mic" [class.listening]="speechService.isListening()" type="button" title="Voice Input"
+        (click)="toggleSpeech()">
+        {{ speechService.isListening() ? '🔴' : '🎤' }}
+      </button>
+
+      <label class="btn-attach" title="Attach file">
+        📎
+        <input type="file" multiple hidden (click)="$any($event.target).value = null"
+          (change)="onFilesSelected($event)">
+      </label>
+      <button class="btn-send" type="button" (click)="sendMessage()" [disabled]="!canSend()">
+        {{ streaming() || uploading() ? '...' : 'Send' }}
+      </button>
+    </div>
+
+  </div>
+</div>

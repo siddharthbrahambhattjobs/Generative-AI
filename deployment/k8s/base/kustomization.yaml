@@ -1,0 +1,19 @@
+resources:
+  - namespace.yaml
+  - platform/platform-configmap.yaml
+  - platform/platform-secret.yaml
+  - platform/flyway-sql-configmap.yaml
+  - platform/flyway-migration-job.yaml
+  - infra/postgres-pvc.yaml
+  - infra/uploads-pvc.yaml
+  - infra/ollama-pvc.yaml
+  - infra/postgres.yaml
+  - infra/redis.yaml
+  - infra/kafka.yaml
+  - infra/ollama.yaml
+  - chat-service/deployment.yaml
+  - chat-service/hpa.yaml
+  - ui/deployment.yaml
+  - ui/hpa.yaml
+  - platform/ingress.yaml
+  - platform/network-policy.yaml

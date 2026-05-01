@@ -1,0 +1,27 @@
+name: container-release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAMESPACE: your-org
+    steps:
+      - uses: actions/checkout@v4
+      - name: Log in to registry
+        run: echo "Replace with registry login step"
+      - name: Build backend image
+        run: |
+          docker build -t $REGISTRY/$IMAGE_NAMESPACE/springai-chat-service:${GITHUB_SHA} springai-chat-service
+      - name: Build frontend image
+        run: |
+          docker build -t $REGISTRY/$IMAGE_NAMESPACE/springai-ui:${GITHUB_SHA} springai-ui
+      - name: Push images
+        run: |
+          echo "Replace with docker push commands and optionally push immutable digests"

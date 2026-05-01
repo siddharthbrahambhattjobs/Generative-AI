@@ -1,0 +1,153 @@
+name: springai-platform
+
+services:
+
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_DB: springai
+      POSTGRES_USER: springai
+      POSTGRES_PASSWORD: springai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U springai -d springai" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.4-alpine
+    ports:
+      - "6379:6379"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      CLUSTER_ID: "5L6g3nShT-eMCtK--X86sw"
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      # FIX 1: Must use container name "kafka", NOT "localhost"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # FIX 2: Use /var/lib/kafka/data — pre-configured with correct
+      # permissions for appuser(uid=1000) inside apache/kafka image
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_HEAP_OPTS: "-Xmx512M -Xms256M"
+    volumes:
+      # FIX 3: Mount to /var/lib/kafka/data — NOT /tmp which is read-only
+      - kafka_data:/var/lib/kafka/data
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server
+            localhost:9092",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      # FIX 4: Wait 30s before first health check
+      start_period: 30s
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+    restart: unless-stopped
+
+  springai-chat-service:
+    build:
+      context: .
+      dockerfile: springai-chat-service/Dockerfile
+    container_name: springai-chat-service
+    ports:
+      - "8080:8080"
+    # FIX 5: Added missing uploads volume
+    volumes:
+      - uploads_data:/app/data/uploads
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/springai
+      SPRING_DATASOURCE_USERNAME: springai
+      SPRING_DATASOURCE_PASSWORD: springai
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_KAFKA_PRODUCER_KEY_SERIALIZER: org.apache.kafka.common.serialization.StringSerializer
+      SPRING_KAFKA_PRODUCER_VALUE_SERIALIZER: org.springframework.kafka.support.serializer.JsonSerializer
+      SPRING_KAFKA_CONSUMER_GROUP_ID: file-ingestion-group
+      SPRING_KAFKA_CONSUMER_AUTO_OFFSET_RESET: earliest
+      SPRING_KAFKA_CONSUMER_KEY_DESERIALIZER: org.apache.kafka.common.serialization.StringDeserializer
+      SPRING_KAFKA_CONSUMER_VALUE_DESERIALIZER: org.springframework.kafka.support.serializer.JsonDeserializer
+      SPRING_KAFKA_CONSUMER_PROPERTIES_SPRING_JSON_TRUSTED_PACKAGES: "*"
+      SPRING_AI_OLLAMA_BASE_URL: http://ollama:11434
+      SPRING_AI_OLLAMA_CHAT_OPTIONS_MODEL: llama3.2:3b
+      SPRING_AI_OLLAMA_EMBEDDING_OPTIONS_MODEL: nomic-embed-text
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+
+  springai-ui:
+    build:
+      context: ./springai-ui
+      dockerfile: Dockerfile
+    container_name: springai-ui
+    ports:
+      - "4200:80"
+    depends_on:
+      - springai-chat-service
+
+# FIX 6: Removed "networks: internal: true" — it blocks all inter-service communication
+volumes:
+  postgres_data:
+  ollama_data:
+  uploads_data:
+  kafka_data:

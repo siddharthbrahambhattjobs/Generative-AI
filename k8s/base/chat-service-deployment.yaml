@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: springai-chat-service
+  namespace: springai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: springai-chat-service
+  template:
+    metadata:
+      labels:
+        app: springai-chat-service
+    spec:
+      containers:
+        - name: springai-chat-service
+          image: your-docker-repo/springai-chat-service:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/springai
+            - name: SPRING_DATA_REDIS_HOST
+              value: redis
+            - name: SPRING_DATA_REDIS_PORT
+              value: "6379"
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: kafka:9092
+            - name: OLLAMA_BASE_URL
+              value: http://ollama:11434
+            - name: JWT_ISSUER
+              value: http://springai.local
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: springai-platform-secret
+                  key: POSTGRES_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: springai-platform-secret
+                  key: POSTGRES_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: springai-platform-secret
+                  key: JWT_SECRET
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080

@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: springai-flyway-migrate
+  namespace: springai
+spec:
+  backoffLimit: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: flyway
+          image: flyway/flyway:10-alpine
+          args:
+            - -url=jdbc:postgresql://postgres:5432/springai
+            - -user=springai
+            - -password=$(SPRING_DATASOURCE_PASSWORD)
+            - -locations=filesystem:/flyway/sql
+            - migrate
+          env:
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: springai-platform-secret
+                  key: SPRING_DATASOURCE_PASSWORD
+          volumeMounts:
+            - name: flyway-sql
+              mountPath: /flyway/sql
+      volumes:
+        - name: flyway-sql
+          configMap:
+            name: springai-flyway-sql

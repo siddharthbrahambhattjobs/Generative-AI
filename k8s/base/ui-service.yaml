@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: springai-ui
+  namespace: springai
+spec:
+  selector:
+    app: springai-ui
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80

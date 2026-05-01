@@ -1,0 +1,8 @@
+spring:
+  config:
+    activate:
+      on-profile: local
+jwt:
+  secret: b7e446b362b0ac81476f80d6c43ca010d055a1fac3deb631c3157206b80a9dc5f01ff6b5b0f3cc2957e9f4b54cfef06d8808bf380cc1ddbd870c231c8d8bf646
+  access-token-expiration: 86400000
+  issuer: springai-chat-service

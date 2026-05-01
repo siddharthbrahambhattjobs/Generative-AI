@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: springai-ui
+  namespace: springai
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: springai-ui
+  template:
+    metadata:
+      labels:
+        app: springai-ui
+    spec:
+      containers:
+        - name: springai-ui
+          image: springai-ui:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: springai-ui
+  namespace: springai
+spec:
+  selector:
+    app: springai-ui
+  ports:
+    - port: 80
+      targetPort: 80

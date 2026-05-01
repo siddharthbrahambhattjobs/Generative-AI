@@ -1,0 +1,114 @@
+spring:
+  application:
+    name: springai-chat-service
+  #    storage:
+  #      base-path: ${APP_STORAGE_BASE_PATH:./data/uploads}
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.vertexai.autoconfigure.gemini.VertexAiGeminiChatAutoConfiguration
+      - org.springframework.ai.model.vertexai.autoconfigure.gemini.VertexAiGeminiEmbeddingAutoConfiguration
+  profiles:
+    active: local
+  webflux:
+    multipart:
+      max-in-memory-size: 25MB
+      max-disk-usage-per-part: 50MB
+      max-parts: 10
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/springai}
+    username: ${SPRING_DATASOURCE_USERNAME:springai}
+    password: ${SPRING_DATASOURCE_PASSWORD:springai}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring:
+          json:
+            trusted:
+              packages: com.example.springai.chatservice.infrastructure.kafka.event
+            value:
+              default:
+                type: java.lang.Object
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:your-placeholder-client-id}
+            client-secret: ${GOOGLE_CLIENT_SECRET:your-placeholder-client-secret}
+            scope: openid,profile,email
+  ai:
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://host.docker.internal:11434}
+      init:
+        pull-model-strategy: never
+        timeout: 5m
+        max-retries: 3
+      chat:
+        options:
+          model: llama3.2:3b
+          temperature: 0.0
+          top-p: 0.9
+          repeat-penalty: 1.2
+          keep_alive: 5m
+          num-ctx: 8192
+      embedding:
+        options:
+          model: nomic-embed-text
+    vectorstore:
+      pgvector:
+        initialize-schema: true
+        dimensions: 768
+        index-type: hnsw
+    vertex:
+      ai:
+        gemini:
+          project-id: ${VERTEX_PROJECT_ID:replace-me}
+          location: ${VERTEX_LOCATION:us-central1}
+          chat:
+            options:
+              model: gemini-2.5-pro
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  tracing:
+    sampling:
+      probability: 1.0
+
+server:
+  port: 8080
+
+jwt:
+  secret: ${JWT_SECRET:springai-platform-phase7-secret-key-sidbhatt94*-123456}
+  issuer: ${JWT_ISSUER:http://localhost:8080}
+  accessTokenExpiration: 86400000 # 24 hours in milliseconds
+
+logging:
+  level:
+    com:
+      example:
+      springai: DEBUG
+    org:
+      springframework:
+        ai: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %logger{36} - %msg%n"

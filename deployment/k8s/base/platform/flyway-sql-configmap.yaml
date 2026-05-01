@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: springai-flyway-sql
+  namespace: springai
+data:
+  V1__placeholder.sql: |
+    -- Placeholder Flyway migration mount for Kubernetes job pattern.
+    -- Replace with exported SQL files or prefer application-start migration in early environments.

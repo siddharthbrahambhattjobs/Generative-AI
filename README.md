@@ -18,6 +18,7 @@ docker exec -it ollama ollama list
 
 now you will see "nomic-embed-text" & "llama3.2:3" in the list.
 
+when everything is up and running, just go to http://localhost:4200 ; click on google oauth link , and login, then you are good to go
 
 please see below file for depth
 [View the SpringAI Technical Architecture Documentation](./SpringAI_platform_documentation.pdf)
